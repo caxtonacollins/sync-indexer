@@ -54,24 +54,39 @@ export default function (runtimeConfig: ApibaraRuntimeConfig) {
 
         try {
           // Try to decode with each event type until one succeeds
+          // Using full event paths from ABI for more reliable matching
           const eventTypes = [
-            "contracts::LiquidityBridge::LiquidityBridge::FiatLiquidityAdded",
-            "contracts::LiquidityBridge::LiquidityBridge::TokenLiquidityAdded",
-            "contracts::LiquidityBridge::LiquidityBridge::FiatLiquidityRemoved",
-            "contracts::LiquidityBridge::LiquidityBridge::FiatDeposit",
-            "contracts::LiquidityBridge::LiquidityBridge::FiatToTokenSwapExecuted",
-            "contracts::LiquidityBridge::LiquidityBridge::TokenToFiatSwapExecuted",
-            "contracts::LiquidityBridge::LiquidityBridge::ExchangeRateUpdated",
-            "contracts::LiquidityBridge::LiquidityBridge::TokenRegistered",
-            "contracts::LiquidityBridge::LiquidityBridge::UserRegistered",
-            "contracts::LiquidityBridge::LiquidityBridge::WithdrawalCompleted",
+            "isyncpayment::events::liquidityBridgeEvents::FiatLiquidityAdded",
+            "isyncpayment::events::liquidityBridgeEvents::TokenLiquidityAdded",
+            "isyncpayment::events::liquidityBridgeEvents::FiatLiquidityRemoved",
+            "isyncpayment::events::liquidityBridgeEvents::FiatDeposit",
+            "isyncpayment::events::liquidityBridgeEvents::FiatToTokenSwapExecuted",
+            "isyncpayment::events::liquidityBridgeEvents::TokenToFiatSwapExecuted",
+            "isyncpayment::events::liquidityBridgeEvents::ExchangeRateUpdated",
+            "isyncpayment::events::liquidityBridgeEvents::TokenRegistered",
+            "isyncpayment::events::liquidityBridgeEvents::UserRegistered",
+            "isyncpayment::events::liquidityBridgeEvents::WithdrawalCompleted",
+          ];
+
+          // Also try with just the simple names as fallback
+          const simpleEventNames = [
+            "FiatLiquidityAdded",
+            "TokenLiquidityAdded",
+            "FiatLiquidityRemoved",
+            "FiatDeposit",
+            "FiatToTokenSwapExecuted",
+            "TokenToFiatSwapExecuted",
+            "ExchangeRateUpdated",
+            "TokenRegistered",
+            "UserRegistered",
+            "WithdrawalCompleted",
           ];
           
           let decoded = null;
           let matchedEventName = null;
 
-          // Try each event type
-          for (const eventType of eventTypes) {
+          // Try each event type with full path first
+          for (const eventType of [...eventTypes, ...simpleEventNames]) {
             try {
               const result = decodeEvent({
                 abi: contractAbi as Abi,
@@ -82,11 +97,18 @@ export default function (runtimeConfig: ApibaraRuntimeConfig) {
 
               if (result) {
                 decoded = result;
-                matchedEventName = eventType.split('::').pop() || eventType;
+                // Use the simple name for the event
+                matchedEventName = eventType.includes('::')
+                  ? eventType.split('::').pop()
+                  : eventType;
+                logger.log(`Successfully matched event type: ${eventType} as ${matchedEventName}`);
                 break;
               }
             } catch (e) {
-              // Continue to next event type
+              // Log detailed error for debugging
+              if (e instanceof Error) {
+                logger.debug(`Failed to decode with ${eventType}: ${e.message}`);
+              }
               continue;
             }
           }
@@ -184,37 +206,19 @@ export default function (runtimeConfig: ApibaraRuntimeConfig) {
               break;
             }
 
-            case "FiatToTokenSwapExecuted": {
-              formattedEventData.data = {
-                name: matchedEventName,
-                user: args.user,
-                fiat_symbol: felt252ToString(args.fiat_symbol),
-                token_symbol: felt252ToString(args.token_symbol),
-                fiat_amount: args.fiat_amount.toString(),
-                fiat_amount_formatted: (Number(args.fiat_amount) / 1e18).toFixed(6),
-                token_amount: args.token_amount.toString(),
-                token_amount_formatted: (Number(args.token_amount) / 1e18).toFixed(6),
-                fee: args.fee.toString(),
-                fee_formatted: (Number(args.fee) / 1e18).toFixed(6),
-              };
-              logger.log(
-                `Fiat to Token Swap: ${formattedEventData.data.fiat_amount_formatted} ${formattedEventData.data.fiat_symbol} -> ${formattedEventData.data.token_amount_formatted} ${formattedEventData.data.token_symbol}`
-              );
-              break;
-            }
-
             case "TokenToFiatSwapExecuted": {
               formattedEventData.data = {
                 name: matchedEventName,
                 user: args.user,
+                swap_order_id: args.swap_order_id.toString(),
                 fiat_symbol: felt252ToString(args.fiat_symbol),
                 token_symbol: felt252ToString(args.token_symbol),
-                fiat_amount: args.fiat_amount.toString(),
-                fiat_amount_formatted: (Number(args.fiat_amount) / 1e18).toFixed(6),
-                token_amount: args.token_amount.toString(),
-                token_amount_formatted: (Number(args.token_amount) / 1e18).toFixed(6),
-                fee: args.fee.toString(),
-                fee_formatted: (Number(args.fee) / 1e18).toFixed(6),
+                token_amount: BigInt(args.token_amount).toString(),
+                fiat_amount: BigInt(args.fiat_amount).toString(),
+                fee: BigInt(args.fee).toString(),
+                token_amount_formatted: (BigInt(args.token_amount) / BigInt(1e18)).toString(),
+                fiat_amount_formatted: (BigInt(args.fiat_amount) / BigInt(1e18)).toString(),
+                fee_formatted: (BigInt(args.fee) / BigInt(1e18)).toString(),
               };
               logger.log(
                 `Token to Fiat Swap: ${formattedEventData.data.token_amount_formatted} ${formattedEventData.data.token_symbol} -> ${formattedEventData.data.fiat_amount_formatted} ${formattedEventData.data.fiat_symbol}`
@@ -282,6 +286,8 @@ export default function (runtimeConfig: ApibaraRuntimeConfig) {
                 ...args,
               };
           }
+
+          // logger.info(`Event decoded: ${JSON.stringify(formattedEventData)}`);
 
           extractedEventData.push(formattedEventData);
         } catch (err) {

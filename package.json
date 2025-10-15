@@ -6,7 +6,8 @@
   "scripts": {
     "prepare": "apibara prepare",
     "dev": "apibara dev",
-    "start": "apibara start --indexer syncpay-liquidity",
+    "start": "apibara start",
+    "start:liquidity": "apibara start --indexer syncpay-liquidity",
     "build": "apibara build",
     "typecheck": "tsc --noEmit",
     "drizzle:generate": "drizzle-kit generate",

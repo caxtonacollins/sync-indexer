@@ -256,7 +256,7 @@ export default function (runtimeConfig: ApibaraRuntimeConfig) {
               formattedEventData.data = {
                 name: matchedEventName,
                 user: args.user,
-                fiat_account_id: felt252ToString(args.fiat_account_id),
+                fiat_account_id: args.fiat_account_id.toString(),
               };
               logger.log(
                 `User Registered: ${formattedEventData.data.user} with account ${formattedEventData.data.fiat_account_id}`

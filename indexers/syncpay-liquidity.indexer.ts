@@ -37,15 +37,15 @@ export default function (runtimeConfig: ApibaraRuntimeConfig) {
     async transform({ endCursor, finality, block }) {
       const logger = useLogger();
 
-      logger.info(
-        "Transforming block | orderKey: ",
-        endCursor?.orderKey,
-        " | finality: ",
-        finality
-      );
+      // logger.info(
+      //   "Transforming block | orderKey: ",
+      //   endCursor?.orderKey,
+      //   " | finality: ",
+      //   finality
+      // );
 
       const { events, header } = block as any;
-      logger.log(`Block number ${header?.blockNumber}`);
+      // logger.log(`Block number ${header?.blockNumber}`);
       let extractedEventData: any[] = [];
 
       // Process each event in the block
@@ -101,7 +101,7 @@ export default function (runtimeConfig: ApibaraRuntimeConfig) {
                 matchedEventName = eventType.includes('::')
                   ? eventType.split('::').pop()
                   : eventType;
-                logger.log(`Successfully matched event type: ${eventType} as ${matchedEventName}`);
+                // logger.log(`Successfully matched event type: ${eventType} as ${matchedEventName}`);
                 break;
               }
             } catch (e) {
